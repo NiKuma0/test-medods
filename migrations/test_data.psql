@@ -1,0 +1,8 @@
+BEGIN;
+
+INSERT INTO users (id, email) VALUES
+    ('550e8400-e29b-41d4-a716-446655440000', 'test1@example.com'),
+    ('550e8400-e29b-41d4-a716-446655440001', 'test2@example.com'),
+    ('550e8400-e29b-41d4-a716-446655440002', 'test3@example.com');
+
+COMMIT;
