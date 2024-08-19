@@ -1,6 +1,6 @@
 module src
 
-go 1.22.6
+go 1.23
 
 require (
 	github.com/DATA-DOG/go-txdb v0.2.0

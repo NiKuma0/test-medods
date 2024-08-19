@@ -21,9 +21,6 @@ func NewConfig() (c Config) {
 	for i := 0; i < valueOf.NumField(); i++ {
 		typeField := ofType.Field(i)
 		valueField := valueOf.Field(i)
-		// if !valueField.CanSet() {
-		// 	continue
-		// }
 		value, ok := os.LookupEnv(typeField.Name)
 		if !ok {
 			panic("Cant't find env variable \"" + typeField.Name + "\"")
