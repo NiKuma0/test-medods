@@ -28,7 +28,7 @@ This project is a Go-based token service that generates JWT access tokens and re
 
 3. Set up your PostgreSQL database and update the DSN in [.env](.env)
 
-## Usage
+## Running in dev mode:
 
 1. Initialize the database:
 
@@ -41,3 +41,48 @@ This project is a Go-based token service that generates JWT access tokens and re
     ```sh
     make run
     ```
+
+## API Endpoints
+
+### Generate Tokens
+
+**Endpoint:** `POST /token`
+
+**Request Body:**
+
+```json
+{
+    "user_id": "your-user-UUID"
+}
+```
+
+**Returning body:**
+
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.asdfasdfasfdasdfasdfasdfasd.EFYZG7Z9y7BPH-bblFjZTMOYbwGTX7GbRFjAwlygHhg",
+  "refresh_token": "ODllOWZmNDgtMTk5Ny00YmRmLTkyOGItMWMyNzY3NWNkMDRm"
+}
+```
+
+### 
+
+**Endpoint:** `POST /refresh`
+
+**Request Body:**
+
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.asdfasdfasfdasdfasdfasdfasd.EFYZG7Z9y7BPH-bblFjZTMOYbwGTX7GbRFjAwlygHhg",
+  "refresh_token": "ODllOWZmNDgtMTk5Ny00YmRmLTkyOGItMWMyNzY3NWNkMDRm"
+}
+```
+
+**Returning body:**
+
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.asdfasdfasfdasdfasdfasdfasd.EFYZG7Z9y7BPH-bblFjZTMOYbwGTX7GbRFjAwlygHhg",
+  "refresh_token": "ODllOWZmNDgtMTk5Ny00YmRmLTkyOGItMWMyNzY3NWNkMDRm"
+}
+```
