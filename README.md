@@ -1,0 +1,43 @@
+# Token Service
+
+This project is a Go-based token service that generates JWT access tokens and refresh tokens. It also validates tokens and saves refresh tokens to a PostgreSQL database. The refresh tokens are hashed and can only be used once.
+
+## Features
+
+- Generate JWT access tokens
+- Generate refresh tokens
+- Validate access tokens
+- Validate refresh tokens
+- Save hashed refresh tokens to the database
+- Ensure refresh tokens can only be used once
+
+## Installation
+
+1. Clone the repository:
+
+    ```sh
+    git clone https://github.com/NiKuma0/test-medods.git
+    cd test-medods
+    ```
+
+2. Install dependencies:
+
+    ```sh
+    go mod tidy
+    ```
+
+3. Set up your PostgreSQL database and update the DSN in [.env](.env)
+
+## Usage
+
+1. Initialize the database:
+
+    ```
+    make migrate-dev
+    ```
+
+2. Run the application:
+
+    ```sh
+    make run
+    ```
