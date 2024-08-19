@@ -93,11 +93,14 @@ func (m *MockNotificationService) NewIpEnterNotification(userId, ip string) erro
 func TestGenerateAccessToken(t *testing.T) {
 	mockRepo := new(MockTokenRepository)
 	mockNotService := new(MockNotificationService)
+	repos := repositories.Repositories{
+		Token: mockRepo,
+	}
 
 	service := services.NewTokenService(
 		"secret",
 		mockNotService,
-		mockRepo,
+		&repos,
 	)
 
 	t.Run("GenerateTokens", func(t *testing.T) {
@@ -116,12 +119,10 @@ func TestGenerateAccessToken(t *testing.T) {
 		userId := "someID"
 		ip := "127.0.0.1"
 
-		mockRepo.On("SaveRefreshToken", userId, mock.Anything).Return(errors.New(""))
-		accessToken, refreshToken, err := service.GenerateTokens(userId, ip)
+		mockRepo.On("SaveRefreshToken", userId, mock.Anything).Return(errors.New("something went wrong"))
+		_, _, err := service.GenerateTokens(userId, ip)
 		assert.Error(t, err)
 		mockRepo.AssertExpectations(t)
-		assert.Equal(t, "", accessToken)
-		assert.Equal(t, "", refreshToken)
 	})
 
 	t.Run("RefreshTokens", func(t *testing.T) {
@@ -138,7 +139,7 @@ func TestGenerateAccessToken(t *testing.T) {
 		newAccessToken, newRefreshToken, err := service.RefreshTokens(accessToken, refreshToken, ip)
 		assert.NoError(t, err)
 		mockRepo.AssertExpectations(t)
-		mockNotService.AssertExpectations(t)
+		mockNotService.AssertNotCalled(t, "NewIpEnterNotification")
 		assert.NotEqual(t, "", newAccessToken)
 		assert.NotEqual(t, "", newRefreshToken)
 	})

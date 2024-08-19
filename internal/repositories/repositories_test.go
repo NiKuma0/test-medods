@@ -19,7 +19,7 @@ func TestRefreshTokenRepository(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	repo := repositories.NewTokenRepository(db)
+	repo := repositories.NewRefreshTokenRepository(db)
 
 	t.Run("SaveRefreshToken", func(t *testing.T) {
 		userId := "550e8400-e29b-41d4-a716-446655440000"

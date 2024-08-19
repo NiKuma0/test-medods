@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
+	"src/internal/repositories"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -12,7 +13,7 @@ import (
 
 type TokenService struct {
 	secret       string
-	repo         TokenRepository
+	repos        *repositories.Repositories
 	notification INotificationService
 }
 
@@ -33,10 +34,10 @@ type Claims struct {
 	Hash   string `json:"hash"`
 }
 
-func NewTokenService(secret string, notificationService INotificationService, repo TokenRepository) *TokenService {
-	return &TokenService{
+func NewTokenService(secret string, notificationService INotificationService, repos *repositories.Repositories) TokenService {
+	return TokenService{
 		secret: secret,
-		repo:   repo,
+		repos:  repos,
 	}
 }
 
@@ -75,18 +76,18 @@ func (s *TokenService) ValidateAccessToken(accessToken string) (*Claims, error) 
 	return nil, errors.New("invalid access token")
 }
 
-func (s *TokenService) GenerateTokens(userId, ip string) (accessToken, refreshToken string, err error) {
-	refreshToken = s.generateRefreshToken()
+func (s *TokenService) GenerateTokens(userId, ip string) (string, string, error) {
+	refreshToken := s.generateRefreshToken()
 	refreshTokenHash := s.hashRefreshToken(refreshToken)
-	err = s.repo.SaveRefreshToken(userId, refreshTokenHash)
+	err := s.repos.Token.SaveRefreshToken(userId, refreshTokenHash)
 	if err != nil {
-		return
+		return "", "", err
 	}
-	accessToken, err = s.generateAccessToken(userId, refreshTokenHash, ip)
+	accessToken, err := s.generateAccessToken(userId, refreshTokenHash, ip)
 	if err != nil {
-		return
+		return "", "", err
 	}
-	return
+	return accessToken, refreshToken, err
 }
 
 func (s *TokenService) RefreshTokens(accessToken, refreshToken, ip string) (string, string, error) {
@@ -98,13 +99,13 @@ func (s *TokenService) RefreshTokens(accessToken, refreshToken, ip string) (stri
 		defer s.notification.NewIpEnterNotification(claims.UserId, ip)
 	}
 	refreshTokenHash := s.hashRefreshToken(refreshToken)
-	valid, err := s.repo.IsRefreshTokenValid(claims.UserId, refreshTokenHash)
+	valid, err := s.repos.Token.IsRefreshTokenValid(claims.UserId, refreshTokenHash)
 	if err != nil {
 		return "", "", err
 	}
 	if !valid || claims.Hash != refreshTokenHash {
 		return "", "", errors.New("refresh token is invalid")
 	}
-	defer s.repo.DeleteRefreshToken(refreshTokenHash)
+	defer s.repos.Token.DeleteRefreshToken(refreshTokenHash)
 	return s.GenerateTokens(claims.UserId, ip)
 }
