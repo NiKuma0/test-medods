@@ -1,8 +1,19 @@
 BEGIN;
 
-DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS users CASCADE;
 CREATE TABLE users (
-    id      UUID    PRIMARY KEY,
-    email   TEXT    NOT NULL
+  id      UUID    PRIMARY KEY,
+  email   TEXT    NOT NULL
 );
+
+DROP TABLE IF EXISTS tokens CASCADE;
+CREATE TABLE tokens (
+  id      SERIAL  PRIMARY KEY,
+  user_id UUID,
+  hash    TEXT,
+  CONSTRAINT  fk_user
+    FOREIGN KEY(user_id) 
+      REFERENCES users(id)
+);
+
 COMMIT;
