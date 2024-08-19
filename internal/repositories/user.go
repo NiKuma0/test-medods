@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"database/sql"
+	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -24,7 +25,7 @@ func NewUserRepositoryFromDataSource(dataSourceName string) (r UserRepository) {
 	if err != nil {
 		panic(err)
 	}
-	if err := db.Ping(); err != nil {
+	if err := PingWithTimeout(db, time.Second*5); err != nil {
 		panic(err)
 	}
 	r = UserRepository{db: db}
