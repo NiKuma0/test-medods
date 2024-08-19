@@ -15,7 +15,11 @@ type User struct {
 	Email  string
 }
 
-func NewUserRepository(dataSourceName string) (r UserRepository) {
+func NewUserRepository(db *sql.DB) UserRepository {
+	return UserRepository{db: db}
+}
+
+func NewUserRepositoryFromDataSource(dataSourceName string) (r UserRepository) {
 	db, err := sql.Open("pgx", dataSourceName)
 	if err != nil {
 		panic(err)
@@ -31,11 +35,25 @@ func (r *UserRepository) Get(userId string) (user User, err error) {
 	err = r.db.QueryRow(
 		`
 		SELECT id, email FROM users
-		WHERE id=?
+		WHERE id=$1::UUID
 		LIMIT 1
 		`,
 		userId,
 	).Scan(&user.UserId, &user.Email)
+	return
+}
+
+func (r *UserRepository) IsExists(userId string) (isExists bool, err error) {
+	err = r.db.QueryRow(
+		`
+		SELECT EXISTS (
+			SELECT * FROM users
+			WHERE id=$1::UUID
+			LIMIT 1
+		)
+		`,
+		userId,
+	).Scan(&isExists)
 	return
 }
 
