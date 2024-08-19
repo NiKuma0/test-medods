@@ -2,26 +2,29 @@ package services
 
 import (
 	"fmt"
-	"src/internal/clients"
 	"src/internal/repositories"
 )
 
+type IMailClient interface {
+	SendNotification(msg, email string) error
+}
+
 type NotificationService struct {
-	client *clients.MailClient
+	client IMailClient
 	repos  *repositories.Repositories
 }
 
-func NewNotificationService(client *clients.MailClient, repos *repositories.Repositories) NotificationService {
+func NewNotificationService(client IMailClient, repos *repositories.Repositories) NotificationService {
 	return NotificationService{
 		client: client,
 		repos:  repos,
 	}
 }
 
-func (s *NotificationService) NewIpEnterNotification(userId, ip string) (err error) {
+func (s *NotificationService) NewIpEnterNotification(userId, ip string) error {
 	user, err := s.repos.User.Get(userId)
 	if err != nil {
-		return
+		return err
 	}
 	return s.client.SendNotification(
 		fmt.Sprintf(

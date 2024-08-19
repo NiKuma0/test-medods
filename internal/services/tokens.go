@@ -1,88 +1,110 @@
 package services
 
 import (
+	"crypto/sha256"
 	"encoding/base64"
 	"errors"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
-	"golang.org/x/crypto/bcrypt"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 type TokenService struct {
-	notification *NotificationService
+	secret       string
+	repo         TokenRepository
+	notification INotificationService
 }
 
-func NewTokenService(notification *NotificationService) TokenService {
-	return TokenService{
-		notification: notification,
+type INotificationService interface {
+	NewIpEnterNotification(userId, ip string) (err error)
+}
+
+type TokenRepository interface {
+	SaveRefreshToken(userId, tokenHash string) error
+	DeleteRefreshToken(tokenHash string) error
+	IsRefreshTokenValid(userId, tokenHash string) (bool, error)
+}
+
+type Claims struct {
+	jwt.RegisteredClaims
+	UserId string `json:"user_id"`
+	Ip     string `json:"ip"`
+	Hash   string `json:"hash"`
+}
+
+func NewTokenService(secret string, notificationService INotificationService, repo TokenRepository) *TokenService {
+	return &TokenService{
+		secret: secret,
+		repo:   repo,
 	}
 }
 
-func (s *TokenService) GenerateTokens(userId, ip string) (accessToken string, refreshToken string, err error) {
-	accessToken, err = s.generateAccessToken(userId, ip)
-	if err != nil {
-		return
+func (s *TokenService) generateAccessToken(userId, refreshTokenHash, ip string) (string, error) {
+	claims := &Claims{
+		UserId: userId,
+		Ip:     ip,
+		Hash:   refreshTokenHash,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
+		},
 	}
-
-	refreshToken, err = s.generateRefreshToken(accessToken)
-	if err != nil {
-		return
-	}
-
-	return accessToken, refreshToken, nil
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(s.secret))
 }
 
-func (s *TokenService) generateAccessToken(userId, ip string) (string, error) {
-	claims := jwt.MapClaims{
-		"user_id": userId,
-		"ip":      ip,
-		"exp":     time.Now().Add(time.Hour * 1).Unix(),
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)
-	return token.SignedString([]byte("your-secret-key"))
+func (s *TokenService) generateRefreshToken() string {
+	return base64.URLEncoding.EncodeToString([]byte(uuid.NewString()))
 }
 
-func (s *TokenService) generateRefreshToken(accessToken string) (string, error) {
-	refreshToken := base64.StdEncoding.EncodeToString([]byte(accessToken))
-	return refreshToken, nil
+func (s *TokenService) hashRefreshToken(token string) string {
+	hash := sha256.Sum256([]byte(token))
+	return base64.URLEncoding.EncodeToString(hash[:])
 }
 
-func (s *TokenService) RefreshTokens(accessToken, refreshToken, ip string) (newAccessToken string, newRefreshToken string, err error) {
-	token, err := jwt.Parse(accessToken, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, errors.New("unexpected signing method")
-		}
-		return []byte("your-secret-key"), nil
+func (s *TokenService) ValidateAccessToken(accessToken string) (*Claims, error) {
+	token, err := jwt.ParseWithClaims(accessToken, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(s.secret), nil
 	})
-	if err != nil || !token.Valid {
-		return "", "", errors.New("invalid access token")
+	if err != nil {
+		return nil, err
 	}
+	if claims, ok := token.Claims.(*Claims); ok && token.Valid {
+		return claims, nil
+	}
+	return nil, errors.New("invalid access token")
+}
 
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		return "", "", errors.New("invalid token claims")
-	}
-
-	userId := claims["user_id"].(string)
-	if claims["ip"].(string) != ip {
-		defer s.notification.NewIpEnterNotification(userId, ip)
-	}
-	expectedRefreshToken := base64.StdEncoding.EncodeToString([]byte(userId + accessToken + time.Now().String()))
-	if err := bcrypt.CompareHashAndPassword([]byte(expectedRefreshToken), []byte(refreshToken)); err != nil {
-		return "", "", errors.New("invalid refresh token")
-	}
-
-	newAccessToken, err = s.generateAccessToken(userId, ip)
+func (s *TokenService) GenerateTokens(userId, ip string) (accessToken, refreshToken string, err error) {
+	refreshToken = s.generateRefreshToken()
+	refreshTokenHash := s.hashRefreshToken(refreshToken)
+	err = s.repo.SaveRefreshToken(userId, refreshTokenHash)
 	if err != nil {
 		return
 	}
-
-	newRefreshToken, err = s.generateRefreshToken(newAccessToken)
+	accessToken, err = s.generateAccessToken(userId, refreshTokenHash, ip)
 	if err != nil {
 		return
 	}
-
 	return
+}
+
+func (s *TokenService) RefreshTokens(accessToken, refreshToken, ip string) (string, string, error) {
+	claims, err := s.ValidateAccessToken(accessToken)
+	if err != nil {
+		return "", "", err
+	}
+	if claims.Ip != ip {
+		defer s.notification.NewIpEnterNotification(claims.UserId, ip)
+	}
+	refreshTokenHash := s.hashRefreshToken(refreshToken)
+	valid, err := s.repo.IsRefreshTokenValid(claims.UserId, refreshTokenHash)
+	if err != nil {
+		return "", "", err
+	}
+	if !valid || claims.Hash != refreshTokenHash {
+		return "", "", errors.New("refresh token is invalid")
+	}
+	defer s.repo.DeleteRefreshToken(refreshTokenHash)
+	return s.GenerateTokens(claims.UserId, ip)
 }
