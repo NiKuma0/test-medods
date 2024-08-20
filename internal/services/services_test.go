@@ -80,7 +80,6 @@ func (m *MockTokenRepository) IsRefreshTokenValid(userId, tokenHash string) (boo
 	return args.Bool(0), args.Error(1)
 }
 
-// Mock for INotificationService
 type MockNotificationService struct {
 	mock.Mock
 }
@@ -90,20 +89,24 @@ func (m *MockNotificationService) NewIpEnterNotification(userId, ip string) erro
 	return args.Error(0)
 }
 
-func TestGenerateAccessToken(t *testing.T) {
-	mockRepo := new(MockTokenRepository)
-	mockNotService := new(MockNotificationService)
+func getTokenService() (mockRepo *MockTokenRepository, mockNotService *MockNotificationService, service services.TokenService) {
+	mockRepo = new(MockTokenRepository)
+	mockNotService = new(MockNotificationService)
 	repos := repositories.Repositories{
 		Token: mockRepo,
 	}
 
-	service := services.NewTokenService(
+	service = services.NewTokenService(
 		"secret",
 		mockNotService,
 		&repos,
 	)
+	return
+}
 
+func TestGenerateAccessToken(t *testing.T) {
 	t.Run("GenerateTokens", func(t *testing.T) {
+		mockRepo, _, service := getTokenService()
 		userId := "someID"
 		ip := "127.0.0.1"
 
@@ -116,6 +119,7 @@ func TestGenerateAccessToken(t *testing.T) {
 	})
 
 	t.Run("GenerateTokensSaveNotSucceed", func(t *testing.T) {
+		mockRepo, _, service := getTokenService()
 		userId := "someID"
 		ip := "127.0.0.1"
 
@@ -126,6 +130,7 @@ func TestGenerateAccessToken(t *testing.T) {
 	})
 
 	t.Run("RefreshTokens", func(t *testing.T) {
+		mockRepo, mockNotService, service := getTokenService()
 		userId := "someID"
 		ip := "127.0.0.1"
 
@@ -145,6 +150,7 @@ func TestGenerateAccessToken(t *testing.T) {
 	})
 
 	t.Run("RefreshTokens_NotValidTokens", func(t *testing.T) {
+		mockRepo, mockNotService, service := getTokenService()
 		userId := "someID"
 		ip := "127.0.0.1"
 
