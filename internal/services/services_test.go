@@ -3,6 +3,7 @@ package services_test
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"src/internal/repositories"
 	"src/internal/services"
@@ -89,24 +90,31 @@ func (m *MockNotificationService) NewIpEnterNotification(userId, ip string) erro
 	return args.Error(0)
 }
 
-func getTokenService() (mockRepo *MockTokenRepository, mockNotService *MockNotificationService, service services.TokenService) {
+func getTokenService(expired bool) (mockRepo *MockTokenRepository, mockNotService *MockNotificationService, service *services.TokenService) {
 	mockRepo = new(MockTokenRepository)
 	mockNotService = new(MockNotificationService)
 	repos := repositories.Repositories{
 		Token: mockRepo,
 	}
-
-	service = services.NewTokenService(
+	var accessExpiredAfter, refreshExpiredAfter time.Duration
+	if !expired {
+		accessExpiredAfter, refreshExpiredAfter = time.Hour*24, time.Hour*24*6
+	} else {
+		accessExpiredAfter, refreshExpiredAfter = -time.Hour*24, -time.Hour*24*6
+	}
+	_service := services.NewTokenService(
 		"secret",
 		mockNotService,
 		&repos,
+		accessExpiredAfter, refreshExpiredAfter,
 	)
+	service = &_service
 	return
 }
 
 func TestGenerateAccessToken(t *testing.T) {
 	t.Run("GenerateTokens", func(t *testing.T) {
-		mockRepo, _, service := getTokenService()
+		mockRepo, _, service := getTokenService(false)
 		userId := "someID"
 		ip := "127.0.0.1"
 
@@ -119,7 +127,7 @@ func TestGenerateAccessToken(t *testing.T) {
 	})
 
 	t.Run("GenerateTokensSaveNotSucceed", func(t *testing.T) {
-		mockRepo, _, service := getTokenService()
+		mockRepo, _, service := getTokenService(false)
 		userId := "someID"
 		ip := "127.0.0.1"
 
@@ -129,8 +137,11 @@ func TestGenerateAccessToken(t *testing.T) {
 		mockRepo.AssertExpectations(t)
 	})
 
-	t.Run("RefreshTokens", func(t *testing.T) {
-		mockRepo, mockNotService, service := getTokenService()
+}
+
+func TestRefreshToken(t *testing.T) {
+	t.Run("ValidTokens", func(t *testing.T) {
+		mockRepo, mockNotService, service := getTokenService(false)
 		userId := "someID"
 		ip := "127.0.0.1"
 
@@ -149,8 +160,8 @@ func TestGenerateAccessToken(t *testing.T) {
 		assert.NotEqual(t, "", newRefreshToken)
 	})
 
-	t.Run("RefreshTokens_NotValidTokens", func(t *testing.T) {
-		mockRepo, mockNotService, service := getTokenService()
+	t.Run("InvalidTokens", func(t *testing.T) {
+		mockRepo, mockNotService, service := getTokenService(false)
 		userId := "someID"
 		ip := "127.0.0.1"
 
@@ -167,6 +178,24 @@ func TestGenerateAccessToken(t *testing.T) {
 		mockRepo.AssertNotCalled(t, "IsRefreshTokenValid")
 		mockRepo.AssertNotCalled(t, "DeleteRefreshToken")
 		mockNotService.AssertNotCalled(t, "NewIpEnterNotification")
+		assert.Equal(t, "", newAccessToken)
+		assert.Equal(t, "", newRefreshToken)
+	})
+
+	t.Run("TokensExpired", func(t *testing.T) {
+		mockRepo, _, service := getTokenService(true)
+		userId := "someID"
+		ip := "127.0.0.1"
+
+		mockRepo.On("SaveRefreshToken", userId, mock.Anything).Return(nil)
+		accessToken, refreshToken, err := service.GenerateTokens(userId, ip)
+		assert.NoError(t, err)
+
+		mockRepo.On("IsRefreshTokenValid", userId, mock.Anything).Return(true, nil)
+		mockRepo.On("DeleteRefreshToken", mock.Anything).Return(nil)
+		newAccessToken, newRefreshToken, err := service.RefreshTokens(accessToken, refreshToken, ip)
+		assert.Error(t, err, "expired refresh token")
+		mockRepo.AssertExpectations(t)
 		assert.Equal(t, "", newAccessToken)
 		assert.Equal(t, "", newRefreshToken)
 	})
