@@ -1,7 +1,7 @@
 package services
 
 import (
-	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/base64"
 	"errors"
 	"src/internal/repositories"
@@ -12,9 +12,11 @@ import (
 )
 
 type TokenService struct {
-	secret       string
-	repos        *repositories.Repositories
-	notification INotificationService
+	secret                   string
+	repos                    *repositories.Repositories
+	notification             INotificationService
+	accessTokenExpiredAfter  time.Duration
+	refreshTokenExpiredAfter time.Duration // Refresh token expired at `time.Now().Add(accessTokenExpiredAfter).Add(refreshTokenExpiredAfter)`
 }
 
 type INotificationService interface {
@@ -29,26 +31,33 @@ type TokenRepository interface {
 
 type Claims struct {
 	jwt.RegisteredClaims
-	UserId string `json:"user_id"`
-	Ip     string `json:"ip"`
-	Hash   string `json:"hash"`
+	UserId    string `json:"user_id"`
+	Ip        string `json:"ip"`
+	Hash      string `json:"hash"`
+	ExpiresAt int64  `json:"expires_at"`
 }
 
-func NewTokenService(secret string, notificationService INotificationService, repos *repositories.Repositories) TokenService {
+func NewTokenService(
+	secret string,
+	notificationService INotificationService,
+	repos *repositories.Repositories,
+	accessTokenExpiredAfter, refreshTokenExpiredAfter time.Duration,
+) TokenService {
 	return TokenService{
-		secret: secret,
-		repos:  repos,
+		secret:                   secret,
+		notification:             notificationService,
+		repos:                    repos,
+		accessTokenExpiredAfter:  accessTokenExpiredAfter,
+		refreshTokenExpiredAfter: refreshTokenExpiredAfter,
 	}
 }
 
 func (s *TokenService) generateAccessToken(userId, refreshTokenHash, ip string) (string, error) {
 	claims := &Claims{
-		UserId: userId,
-		Ip:     ip,
-		Hash:   refreshTokenHash,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
-		},
+		UserId:    userId,
+		Ip:        ip,
+		Hash:      refreshTokenHash,
+		ExpiresAt: time.Now().Add(s.accessTokenExpiredAfter).Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(s.secret))
@@ -59,7 +68,7 @@ func (s *TokenService) generateRefreshToken() string {
 }
 
 func (s *TokenService) hashRefreshToken(token string) string {
-	hash := sha256.Sum256([]byte(token))
+	hash := sha512.Sum512([]byte(token))
 	return base64.URLEncoding.EncodeToString(hash[:])
 }
 
@@ -107,5 +116,8 @@ func (s *TokenService) RefreshTokens(accessToken, refreshToken, ip string) (stri
 		return "", "", errors.New("refresh token is invalid")
 	}
 	defer s.repos.Token.DeleteRefreshToken(refreshTokenHash)
+	if time.UnixMilli(claims.ExpiresAt * 1000).Add(s.refreshTokenExpiredAfter).Before(time.Now()) {
+		return "", "", errors.New("expired refresh token")
+	}
 	return s.GenerateTokens(claims.UserId, ip)
 }

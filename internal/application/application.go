@@ -5,6 +5,7 @@ import (
 	"src/internal/clients"
 	"src/internal/repositories"
 	"src/internal/services"
+	"time"
 )
 
 type Application struct {
@@ -34,7 +35,7 @@ func NewApplication() *Application {
 
 	userService := services.NewUserService(&repos)
 	notificationService := services.NewNotificationService(&mailClient, &repos)
-	tokenService := services.NewTokenService("secret", &notificationService, &repos)
+	tokenService := services.NewTokenService("secret", &notificationService, &repos, time.Hour*24, time.Hour*24*6)
 
 	return &Application{
 		Config: &config,
