@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"src/internal/repositories"
-	"src/internal/services"
+	"jwt-service/internal/repositories"
+	"jwt-service/internal/services"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -102,13 +102,12 @@ func getTokenService(expired bool) (mockRepo *MockTokenRepository, mockNotServic
 	} else {
 		accessExpiredAfter, refreshExpiredAfter = -time.Hour*24, -time.Hour*24*6
 	}
-	_service := services.NewTokenService(
+	service = services.NewTokenService(
 		"secret",
 		mockNotService,
 		&repos,
 		accessExpiredAfter, refreshExpiredAfter,
 	)
-	service = &_service
 	return
 }
 

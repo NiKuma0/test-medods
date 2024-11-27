@@ -1,9 +1,7 @@
 # Go
 vendor
 __debug*
+build
 
 # IDE
 .vscode
-
-# Project
-build

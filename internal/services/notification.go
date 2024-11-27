@@ -2,7 +2,7 @@ package services
 
 import (
 	"fmt"
-	"src/internal/repositories"
+	"jwt-service/internal/repositories"
 )
 
 type IMailClient interface {
@@ -14,8 +14,8 @@ type NotificationService struct {
 	repos  *repositories.Repositories
 }
 
-func NewNotificationService(client IMailClient, repos *repositories.Repositories) NotificationService {
-	return NotificationService{
+func NewNotificationService(client IMailClient, repos *repositories.Repositories) *NotificationService {
+	return &NotificationService{
 		client: client,
 		repos:  repos,
 	}

@@ -1,13 +1,13 @@
 package services
 
-import "src/internal/repositories"
+import "jwt-service/internal/repositories"
 
 type UserService struct {
 	repos *repositories.Repositories
 }
 
-func NewUserService(repos *repositories.Repositories) UserService {
-	return UserService{
+func NewUserService(repos *repositories.Repositories) *UserService {
+	return &UserService{
 		repos: repos,
 	}
 }

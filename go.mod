@@ -1,4 +1,4 @@
-module src
+module jwt-service
 
 go 1.23
 

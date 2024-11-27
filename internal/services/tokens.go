@@ -4,11 +4,12 @@ import (
 	"crypto/sha512"
 	"encoding/base64"
 	"errors"
-	"src/internal/repositories"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+
+	"jwt-service/internal/repositories"
 )
 
 type TokenService struct {
@@ -42,8 +43,8 @@ func NewTokenService(
 	notificationService INotificationService,
 	repos *repositories.Repositories,
 	accessTokenExpiredAfter, refreshTokenExpiredAfter time.Duration,
-) TokenService {
-	return TokenService{
+) *TokenService {
+	return &TokenService{
 		secret:                   secret,
 		notification:             notificationService,
 		repos:                    repos,

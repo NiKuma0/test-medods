@@ -22,7 +22,7 @@ func NewRefreshTokenRepository(db *sql.DB) RefreshTokenRepository {
 
 }
 
-func NewRefreshTokenRepositoryFromDataSource(dataSourceName string) RefreshTokenRepository {
+func NewRefreshTokenRepositoryFromDataSource(dataSourceName string) *RefreshTokenRepository {
 	db, err := sql.Open("pgx", dataSourceName)
 	if err != nil {
 		panic(err)
@@ -30,7 +30,7 @@ func NewRefreshTokenRepositoryFromDataSource(dataSourceName string) RefreshToken
 	if err := PingWithTimeout(db, time.Second*5); err != nil {
 		panic(err)
 	}
-	return RefreshTokenRepository{db: db}
+	return &RefreshTokenRepository{db: db}
 }
 
 func (r *RefreshTokenRepository) SaveRefreshToken(userId, tokenHash string) (err error) {
@@ -54,18 +54,17 @@ func (r *RefreshTokenRepository) DeleteRefreshToken(tokenHash string) (err error
 	return
 }
 
-func (r *RefreshTokenRepository) IsRefreshTokenValid(userId, tokenHash string) (bool, error) {
-	var count int
-	row := r.db.QueryRow(
+func (r *RefreshTokenRepository) IsRefreshTokenValid(userId, tokenHash string) (isExists bool, _ error) {
+	return isExists, r.db.QueryRow(
 		`
-		SELECT COUNT(*) FROM tokens
-		WHERE user_id=$1::UUID AND hash=$2
-		LIMIT 1
+		SELECT exists(
+			SELECT 1 FROM tokens
+			WHERE user_id=$1::UUID AND hash=$2
+			LIMIT 1
+		);
 		`,
 		userId, tokenHash,
-	)
-	err := row.Scan(&count)
-	return count > 0, err
+	).Scan(&isExists)
 }
 
 func (r *RefreshTokenRepository) Shutdown() {

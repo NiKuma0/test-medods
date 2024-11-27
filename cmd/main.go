@@ -4,13 +4,12 @@ import (
 	"log"
 	"net/http"
 
-	"src/internal/api"
-	"src/internal/application"
+	"jwt-service/internal/application"
 )
 
 func main() {
 	app := application.NewApplication()
 	defer app.Shutdown()
-	router := api.NewRouter(app)
+	router := app.Controller.NewRouter()
 	log.Fatal(http.ListenAndServe(":8080", router))
 }

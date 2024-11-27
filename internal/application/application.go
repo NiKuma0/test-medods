@@ -2,14 +2,16 @@ package application
 
 import (
 	"fmt"
-	"src/internal/clients"
-	"src/internal/repositories"
-	"src/internal/services"
 	"time"
+
+	"jwt-service/internal/api"
+	"jwt-service/internal/clients"
+	"jwt-service/internal/repositories"
+	"jwt-service/internal/services"
 )
 
 type Application struct {
-	Services      *services.Services
+	Controller    *api.Controller
 	Repositories  *repositories.Repositories
 	Config        *Config
 	shutdownStack []func()
@@ -20,8 +22,8 @@ func NewApplication() *Application {
 	userRepo := repositories.NewUserRepositoryFromDataSource(config.POSTGRES_DSN)
 	tokenRepo := repositories.NewRefreshTokenRepositoryFromDataSource(config.POSTGRES_DSN)
 	repos := repositories.Repositories{
-		User:  &userRepo,
-		Token: &tokenRepo,
+		User:  userRepo,
+		Token: tokenRepo,
 	}
 
 	smtpMockServer := clients.StartNewMockServer()
@@ -35,15 +37,15 @@ func NewApplication() *Application {
 
 	userService := services.NewUserService(&repos)
 	notificationService := services.NewNotificationService(&mailClient, &repos)
-	tokenService := services.NewTokenService("secret", &notificationService, &repos, time.Hour*24, time.Hour*24*6)
+	tokenService := services.NewTokenService("secret", notificationService, &repos, time.Hour*24, time.Hour*24*6)
 
 	return &Application{
 		Config: &config,
-		Services: &services.Services{
-			Notification: &notificationService,
-			Token:        &tokenService,
-			User:         &userService,
-		},
+		Controller: api.NewController(
+			notificationService,
+			tokenService,
+			userService,
+		),
 		shutdownStack: []func(){
 			userRepo.Shutdown,
 			mailClient.Shutdown,

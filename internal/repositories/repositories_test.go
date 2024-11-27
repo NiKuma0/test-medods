@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"testing"
 
-	"src/internal/repositories"
+	"jwt-service/internal/repositories"
 
 	"github.com/DATA-DOG/go-txdb"
 	"github.com/stretchr/testify/assert"

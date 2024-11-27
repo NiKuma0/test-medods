@@ -20,7 +20,7 @@ func NewUserRepository(db *sql.DB) UserRepository {
 	return UserRepository{db: db}
 }
 
-func NewUserRepositoryFromDataSource(dataSourceName string) (r UserRepository) {
+func NewUserRepositoryFromDataSource(dataSourceName string) *UserRepository {
 	db, err := sql.Open("pgx", dataSourceName)
 	if err != nil {
 		panic(err)
@@ -28,12 +28,11 @@ func NewUserRepositoryFromDataSource(dataSourceName string) (r UserRepository) {
 	if err := PingWithTimeout(db, time.Second*5); err != nil {
 		panic(err)
 	}
-	r = UserRepository{db: db}
-	return
+	return &UserRepository{db: db}
 }
 
 func (r *UserRepository) Get(userId string) (user User, err error) {
-	err = r.db.QueryRow(
+	return user, r.db.QueryRow(
 		`
 		SELECT id, email FROM users
 		WHERE id=$1::UUID
@@ -41,21 +40,19 @@ func (r *UserRepository) Get(userId string) (user User, err error) {
 		`,
 		userId,
 	).Scan(&user.UserId, &user.Email)
-	return
 }
 
 func (r *UserRepository) IsExists(userId string) (isExists bool, err error) {
-	err = r.db.QueryRow(
+	return isExists, r.db.QueryRow(
 		`
 		SELECT EXISTS (
-			SELECT * FROM users
+			SELECT 1 FROM users
 			WHERE id=$1::UUID
 			LIMIT 1
 		)
 		`,
 		userId,
 	).Scan(&isExists)
-	return
 }
 
 func (r *UserRepository) Shutdown() {
